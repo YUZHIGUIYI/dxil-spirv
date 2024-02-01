@@ -5587,9 +5587,12 @@ bool Converter::Impl::emit_execution_modes_thread_wave_properties(const llvm::MD
 		// Spec says that product of workgroup size must align with 4.
 		if (total_workgroup_threads % 4 == 0)
 		{
-			builder.addExtension("SPV_NV_compute_shader_derivatives");
-			builder.addCapability(spv::CapabilityComputeDerivativeGroupLinearNV);
-			builder.addExecutionMode(spirv_module.get_entry_function(), spv::ExecutionModeDerivativeGroupLinearNV);
+			if (options.nv_compute_shader_derivatives)
+			{
+				builder.addExtension("SPV_NV_compute_shader_derivatives");
+				builder.addCapability(spv::CapabilityComputeDerivativeGroupLinearNV);
+				builder.addExecutionMode(spirv_module.get_entry_function(), spv::ExecutionModeDerivativeGroupLinearNV);
+			}
 
 			// If the X and Y dimensions align with 2,
 			// we need to assume that any quad op works on a 2D dispatch.
@@ -6901,6 +6904,13 @@ void Converter::Impl::set_option(const OptionBase &cap)
 	{
 		auto &c = static_cast<const OptionDescriptorHeapRobustness &>(cap);
 		options.descriptor_heap_robustness = c.enabled;
+		break;
+	}
+
+	case Option::ComputeShaderDerivativesNV:
+	{
+		auto &c = static_cast<const OptionComputeShaderDerivativesNV &>(cap);
+		options.nv_compute_shader_derivatives = c.supported;
 		break;
 	}
 

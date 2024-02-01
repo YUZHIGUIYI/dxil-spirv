@@ -1,0 +1,44 @@
+Texture2D<float> T2D;
+Texture2DArray<float> T2DArr;
+TextureCube<float> TCube;
+Texture3D<float> T3D;
+
+RWStructuredBuffer<float> O;
+
+SamplerState S;
+SamplerComparisonState SComp;
+
+[numthreads(64, 1, 1)]
+void main(uint thr : SV_DispatchThreadID)
+{
+	float4 uv = float4(0.1, 0.2, 0.3, 0.4) * float(thr);
+
+	O[thr] += T2D.Sample(S, uv.xy);
+	O[thr] += T2DArr.Sample(S, uv.xyz);
+	O[thr] += TCube.Sample(S, uv.xyz);
+	O[thr] += T3D.Sample(S, uv.xyz);
+
+	// Delimiter to make things a bit easier to read.
+	DeviceMemoryBarrierWithGroupSync();
+
+	O[thr] += T2D.SampleBias(S, uv.xy, uv.w);
+	O[thr] += T2DArr.SampleBias(S, uv.xyz, uv.w);
+	O[thr] += TCube.SampleBias(S, uv.xyz, uv.w);
+	O[thr] += T3D.SampleBias(S, uv.xyz, uv.w);
+
+	// Delimiter to make things a bit easier to read.
+	DeviceMemoryBarrierWithGroupSync();
+
+	O[thr] += ddx(uv.w);
+	O[thr] += ddy(uv.w);
+
+	DeviceMemoryBarrierWithGroupSync();
+
+	O[thr] += ddx_coarse(uv.w);
+	O[thr] += ddy_coarse(uv.w);
+
+	DeviceMemoryBarrierWithGroupSync();
+
+	O[thr] += ddx_fine(uv.w);
+	O[thr] += ddy_fine(uv.w);
+}

@@ -198,6 +198,70 @@ static bool get_texel_offsets(Converter::Impl &impl, const llvm::CallInst *instr
 	return true;
 }
 
+static void build_gradient(Converter::Impl &impl, const spv::Id *coord, unsigned num_coords,
+                           spv::Id &grad_x, spv::Id &grad_y, spv::Id bias_id, uint32_t &ops)
+{
+	auto &builder = impl.builder();
+	spv::Id f32_type = builder.makeFloatType(32);
+	spv::Id vec_type = builder.makeVectorType(f32_type, num_coords);
+	spv::Id coord_vec = impl.build_vector(builder.makeFloatType(32), coord, num_coords);
+	builder.addCapability(spv::CapabilityGroupNonUniformQuad);
+
+	auto *shuf_x = impl.allocate(spv::OpGroupNonUniformQuadSwap, vec_type);
+	shuf_x->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	shuf_x->add_id(coord_vec);
+	shuf_x->add_id(builder.makeUintConstant(0));
+
+	auto *shuf_y = impl.allocate(spv::OpGroupNonUniformQuadSwap, vec_type);
+	shuf_y->add_id(builder.makeUintConstant(spv::ScopeSubgroup));
+	shuf_y->add_id(coord_vec);
+	shuf_y->add_id(builder.makeUintConstant(1));
+
+	// Sign does not matter here. LOD computation takes absolute values.
+	auto *horiz_sub = impl.allocate(spv::OpFSub, vec_type);
+	auto *vert_sub = impl.allocate(spv::OpFSub, vec_type);
+	horiz_sub->add_id(coord_vec);
+	horiz_sub->add_id(shuf_x->id);
+	vert_sub->add_id(coord_vec);
+	vert_sub->add_id(shuf_y->id);
+
+	impl.add(shuf_x);
+	impl.add(shuf_y);
+	impl.add(horiz_sub);
+	impl.add(vert_sub);
+
+	grad_x = horiz_sub->id;
+	grad_y = vert_sub->id;
+
+	if (ops & spv::ImageOperandsBiasMask)
+	{
+		ops &= ~spv::ImageOperandsBiasMask;
+
+		if (!impl.glsl_std450_ext)
+			impl.glsl_std450_ext = builder.import("GLSL.std.450");
+
+		auto *exp2 = impl.allocate(spv::OpExtInst, f32_type);
+		exp2->add_id(impl.glsl_std450_ext);
+		exp2->add_literal(GLSLstd450Exp2);
+		exp2->add_id(bias_id);
+		impl.add(exp2);
+
+		auto *scale_x = impl.allocate(spv::OpVectorTimesScalar, vec_type);
+		auto *scale_y = impl.allocate(spv::OpVectorTimesScalar, vec_type);
+		scale_x->add_id(grad_x);
+		scale_x->add_id(exp2->id);
+		scale_y->add_id(grad_y);
+		scale_y->add_id(exp2->id);
+
+		impl.add(scale_x);
+		impl.add(scale_y);
+		grad_x = scale_x->id;
+		grad_y = scale_y->id;
+	}
+
+	ops |= spv::ImageOperandsGradMask;
+}
+
 bool emit_sample_instruction(DXIL::Op opcode, Converter::Impl &impl, const llvm::CallInst *instruction)
 {
 	bool comparison_sampling = opcode == DXIL::Op::SampleCmp ||
@@ -292,12 +356,45 @@ bool emit_sample_instruction(DXIL::Op opcode, Converter::Impl &impl, const llvm:
 
 	auto effective_component_type = Converter::Impl::get_effective_typed_resource_type(meta.component_type);
 	spv::Id texel_type = impl.get_type_id(effective_component_type, 1, comparison_sampling ? 1 : 4);
+	spv::Id grad_x = 0, grad_y = 0;
 	spv::Id sample_type;
 
 	if (sparse)
 		sample_type = impl.get_struct_type({ builder.makeUintType(32), texel_type }, "SparseTexel");
 	else
 		sample_type = texel_type;
+
+	bool grad_rewrite = impl.execution_model != spv::ExecutionModelFragment &&
+	                    !impl.options.nv_compute_shader_derivatives;
+
+	if (grad_rewrite)
+	{
+		switch (spv_op)
+		{
+		case spv::OpImageSampleImplicitLod:
+			spv_op = spv::OpImageSampleExplicitLod;
+			break;
+
+		case spv::OpImageSparseSampleImplicitLod:
+			spv_op = spv::OpImageSparseSampleExplicitLod;
+			break;
+
+		case spv::OpImageSampleDrefImplicitLod:
+			spv_op = spv::OpImageSampleDrefExplicitLod;
+			break;
+
+		case spv::OpImageSparseSampleDrefImplicitLod:
+			spv_op = spv::OpImageSparseSampleDrefExplicitLod;
+			break;
+
+		default:
+			grad_rewrite = false;
+			break;
+		}
+	}
+
+	if (grad_rewrite)
+		build_gradient(impl, coord, num_coords, grad_x, grad_y, bias_level_argument, image_ops);
 
 	// Comparison sampling only returns a scalar, so we'll need to splat out result.
 	Operation *op = impl.allocate(spv_op, instruction, sample_type);
@@ -315,6 +412,12 @@ bool emit_sample_instruction(DXIL::Op opcode, Converter::Impl &impl, const llvm:
 
 	if (image_ops & (spv::ImageOperandsBiasMask | spv::ImageOperandsLodMask))
 		op->add_id(bias_level_argument);
+
+	if (image_ops & spv::ImageOperandsGradMask)
+	{
+		op->add_id(grad_x);
+		op->add_id(grad_y);
+	}
 
 	if (image_ops & (spv::ImageOperandsConstOffsetMask | spv::ImageOperandsOffsetMask))
 	{
