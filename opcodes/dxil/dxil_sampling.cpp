@@ -1258,6 +1258,7 @@ static bool emit_calculate_lod_instruction_fallback(Converter::Impl &impl, const
 		coords[i] = impl.get_id_for_value(instruction->getOperand(3 + i));
 	spv::Id coord_vec = impl.build_vector(builder.makeFloatType(32), coords, num_coords);
 
+	spv::Id i32_type = builder.makeIntType(32);
 	spv::Id f32_type = builder.makeFloatType(32);
 	spv::Id fvec_type = builder.makeVectorType(f32_type, num_coords);
 
@@ -1283,9 +1284,25 @@ static bool emit_calculate_lod_instruction_fallback(Converter::Impl &impl, const
 	grad_y->add_id(coord_vec);
 	impl.add(grad_y);
 
-	auto *query_op = impl.allocate(spv::OpImageQuerySizeLod, builder.makeVectorType(builder.makeIntType(32), num_coords));
+	uint32_t num_size_coords;
+	if (!get_image_dimensions_query_size(impl, builder, image_id, &num_size_coords))
+		return false;
+
+	auto *query_op = impl.allocate(spv::OpImageQuerySizeLod, builder.makeVectorType(i32_type, num_size_coords));
 	query_op->add_ids({ image_id, builder.makeIntConstant(0) });
 	impl.add(query_op);
+
+	if (num_coords != num_size_coords)
+	{
+		auto *shuffle_op = impl.allocate(spv::OpVectorShuffle, builder.makeVectorType(i32_type, num_coords));
+		shuffle_op->add_id(query_op->id);
+		shuffle_op->add_id(query_op->id);
+		for (unsigned i = 0; i < num_coords; i++)
+			shuffle_op->add_literal(i);
+		impl.add(shuffle_op);
+
+		query_op = shuffle_op;
+	}
 
 	auto *fconv = impl.allocate(spv::OpConvertSToF, fvec_type);
 	fconv->add_id(query_op->id);

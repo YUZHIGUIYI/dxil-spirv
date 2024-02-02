@@ -1,6 +1,7 @@
 #version 460
 #extension GL_KHR_shader_subgroup_quad : require
 #extension GL_KHR_shader_subgroup_basic : require
+#extension GL_EXT_samplerless_texture_functions : require
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 layout(set = 0, binding = 0, std430) coherent buffer SSBO
@@ -75,6 +76,34 @@ void main()
     _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + (((gl_SubgroupInvocationID & 1u) != 0u) ? subgroupQuadSwapHorizontal(_363) : _363));
     float _378 = subgroupQuadSwapVertical(_44) - _44;
     _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + (((gl_SubgroupInvocationID & 2u) != 0u) ? subgroupQuadSwapVertical(_378) : _378));
+    groupMemoryBarrier();
+    barrier();
+    vec2 _392 = vec2(_38, _40);
+    vec2 _401 = vec2(textureSize(_8, 0));
+    vec2 _402 = (subgroupQuadSwapHorizontal(_392) - _392) * _401;
+    vec2 _403 = (subgroupQuadSwapVertical(_392) - _392) * _401;
+    _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + max(min(log2(max(dot(_402, _402), dot(_403, _403))) * 0.5, float(textureQueryLevels(_8)) - (-1.0)), 0.0));
+    vec2 _424 = vec2(_38, _40);
+    vec2 _432 = vec2(textureSize(_11, 0).xy);
+    vec2 _433 = (subgroupQuadSwapHorizontal(_424) - _424) * _432;
+    vec2 _434 = (subgroupQuadSwapVertical(_424) - _424) * _432;
+    _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + max(min(log2(max(dot(_433, _433), dot(_434, _434))) * 0.5, float(textureQueryLevels(_11)) - (-1.0)), 0.0));
+    vec3 _453 = vec3(_38, _40, _42);
+    ivec2 _458 = textureSize(_14, 0);
+    vec3 _460 = vec3(ivec3(_458.x, _458.y, _458.x));
+    vec3 _461 = (subgroupQuadSwapHorizontal(_453) - _453) * _460;
+    vec3 _462 = (subgroupQuadSwapVertical(_453) - _453) * _460;
+    _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + max(min(log2(max(dot(_461, _461), dot(_462, _462))) * 0.5, float(textureQueryLevels(_14)) - (-1.0)), 0.0));
+    vec3 _481 = vec3(_38, _40, _42);
+    vec3 _487 = vec3(textureSize(_17, 0));
+    vec3 _488 = (subgroupQuadSwapHorizontal(_481) - _481) * _487;
+    vec3 _489 = (subgroupQuadSwapVertical(_481) - _481) * _487;
+    _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + max(min(log2(max(dot(_488, _488), dot(_489, _489))) * 0.5, float(textureQueryLevels(_17)) - (-1.0)), 0.0));
+    vec3 _508 = vec3(_38, _40, _42);
+    vec3 _514 = vec3(textureSize(_20, 0));
+    vec3 _515 = (subgroupQuadSwapHorizontal(_508) - _508) * _514;
+    vec3 _516 = (subgroupQuadSwapVertical(_508) - _508) * _514;
+    _25._m0[gl_GlobalInvocationID.x] = floatBitsToUint(uintBitsToFloat(_25._m0[gl_GlobalInvocationID.x]) + max(min(log2(max(dot(_515, _515), dot(_516, _516))) * 0.5, float(textureQueryLevels(_20)) - (-1.0)), 0.0));
 }
 
 
@@ -83,10 +112,11 @@ void main()
 ; SPIR-V
 ; Version: 1.3
 ; Generator: Unknown(30017); 21022
-; Bound: 392
+; Bound: 535
 ; Schema: 0
 OpCapability Shader
 OpCapability SampledCubeArray
+OpCapability ImageQuery
 OpCapability GroupNonUniform
 OpCapability GroupNonUniformQuad
 %153 = OpExtInstImport "GLSL.std.450"
@@ -177,10 +207,16 @@ OpDecorate %365 BuiltIn SubgroupLocalInvocationId
 %309 = OpTypeSampledImage %308
 %365 = OpVariable %33 Input
 %368 = OpTypeBool
+%393 = OpTypeInt 32 1
+%398 = OpTypeVector %393 2
+%400 = OpConstant %393 0
+%409 = OpConstant %5 0.5
+%413 = OpConstant %5 -1
+%429 = OpTypeVector %393 3
 %3 = OpFunction %1 None %2
 %4 = OpLabel
-OpBranch %390
-%390 = OpLabel
+OpBranch %533
+%533 = OpLabel
 %34 = OpAccessChain %33 %32 %35
 %36 = OpLoad %21 %34
 %37 = OpConvertUToF %5 %36
@@ -532,6 +568,149 @@ OpStore %376 %375
 %388 = OpBitcast %21 %387
 %389 = OpAccessChain %63 %25 %35 %36
 OpStore %389 %388
+OpControlBarrier %143 %143 %144
+%390 = OpLoad %6 %8
+%391 = OpLoad %26 %28
+%392 = OpCompositeConstruct %52 %38 %40
+%394 = OpGroupNonUniformQuadSwap %52 %55 %392 %35
+%395 = OpGroupNonUniformQuadSwap %52 %55 %392 %57
+%396 = OpFSub %52 %394 %392
+%397 = OpFSub %52 %395 %392
+%399 = OpImageQuerySizeLod %398 %390 %400
+%401 = OpConvertSToF %52 %399
+%402 = OpFMul %52 %396 %401
+%403 = OpFMul %52 %397 %401
+%404 = OpDot %5 %402 %402
+%405 = OpDot %5 %403 %403
+%406 = OpExtInst %5 %153 FMax %404 %405
+%407 = OpExtInst %5 %153 Log2 %406
+%408 = OpFMul %5 %407 %409
+%410 = OpImageQueryLevels %393 %390
+%411 = OpConvertSToF %5 %410
+%412 = OpFSub %5 %411 %413
+%414 = OpExtInst %5 %153 FMin %408 %412
+%415 = OpExtInst %5 %153 FMax %414 %50
+%416 = OpAccessChain %63 %25 %35 %36
+%417 = OpLoad %21 %416
+%418 = OpBitcast %5 %417
+%419 = OpFAdd %5 %418 %415
+%420 = OpBitcast %21 %419
+%421 = OpAccessChain %63 %25 %35 %36
+OpStore %421 %420
+%422 = OpLoad %9 %11
+%423 = OpLoad %26 %28
+%424 = OpCompositeConstruct %52 %38 %40
+%425 = OpGroupNonUniformQuadSwap %52 %55 %424 %35
+%426 = OpGroupNonUniformQuadSwap %52 %55 %424 %57
+%427 = OpFSub %52 %425 %424
+%428 = OpFSub %52 %426 %424
+%430 = OpImageQuerySizeLod %429 %422 %400
+%431 = OpVectorShuffle %398 %430 %430 0 1
+%432 = OpConvertSToF %52 %431
+%433 = OpFMul %52 %427 %432
+%434 = OpFMul %52 %428 %432
+%435 = OpDot %5 %433 %433
+%436 = OpDot %5 %434 %434
+%437 = OpExtInst %5 %153 FMax %435 %436
+%438 = OpExtInst %5 %153 Log2 %437
+%439 = OpFMul %5 %438 %409
+%440 = OpImageQueryLevels %393 %422
+%441 = OpConvertSToF %5 %440
+%442 = OpFSub %5 %441 %413
+%443 = OpExtInst %5 %153 FMin %439 %442
+%444 = OpExtInst %5 %153 FMax %443 %50
+%445 = OpAccessChain %63 %25 %35 %36
+%446 = OpLoad %21 %445
+%447 = OpBitcast %5 %446
+%448 = OpFAdd %5 %447 %444
+%449 = OpBitcast %21 %448
+%450 = OpAccessChain %63 %25 %35 %36
+OpStore %450 %449
+%451 = OpLoad %12 %14
+%452 = OpLoad %26 %28
+%453 = OpCompositeConstruct %80 %38 %40 %42
+%454 = OpGroupNonUniformQuadSwap %80 %55 %453 %35
+%455 = OpGroupNonUniformQuadSwap %80 %55 %453 %57
+%456 = OpFSub %80 %454 %453
+%457 = OpFSub %80 %455 %453
+%458 = OpImageQuerySizeLod %398 %451 %400
+%459 = OpVectorShuffle %429 %458 %458 0 1 2
+%460 = OpConvertSToF %80 %459
+%461 = OpFMul %80 %456 %460
+%462 = OpFMul %80 %457 %460
+%463 = OpDot %5 %461 %461
+%464 = OpDot %5 %462 %462
+%465 = OpExtInst %5 %153 FMax %463 %464
+%466 = OpExtInst %5 %153 Log2 %465
+%467 = OpFMul %5 %466 %409
+%468 = OpImageQueryLevels %393 %451
+%469 = OpConvertSToF %5 %468
+%470 = OpFSub %5 %469 %413
+%471 = OpExtInst %5 %153 FMin %467 %470
+%472 = OpExtInst %5 %153 FMax %471 %50
+%473 = OpAccessChain %63 %25 %35 %36
+%474 = OpLoad %21 %473
+%475 = OpBitcast %5 %474
+%476 = OpFAdd %5 %475 %472
+%477 = OpBitcast %21 %476
+%478 = OpAccessChain %63 %25 %35 %36
+OpStore %478 %477
+%479 = OpLoad %15 %17
+%480 = OpLoad %26 %28
+%481 = OpCompositeConstruct %80 %38 %40 %42
+%482 = OpGroupNonUniformQuadSwap %80 %55 %481 %35
+%483 = OpGroupNonUniformQuadSwap %80 %55 %481 %57
+%484 = OpFSub %80 %482 %481
+%485 = OpFSub %80 %483 %481
+%486 = OpImageQuerySizeLod %429 %479 %400
+%487 = OpConvertSToF %80 %486
+%488 = OpFMul %80 %484 %487
+%489 = OpFMul %80 %485 %487
+%490 = OpDot %5 %488 %488
+%491 = OpDot %5 %489 %489
+%492 = OpExtInst %5 %153 FMax %490 %491
+%493 = OpExtInst %5 %153 Log2 %492
+%494 = OpFMul %5 %493 %409
+%495 = OpImageQueryLevels %393 %479
+%496 = OpConvertSToF %5 %495
+%497 = OpFSub %5 %496 %413
+%498 = OpExtInst %5 %153 FMin %494 %497
+%499 = OpExtInst %5 %153 FMax %498 %50
+%500 = OpAccessChain %63 %25 %35 %36
+%501 = OpLoad %21 %500
+%502 = OpBitcast %5 %501
+%503 = OpFAdd %5 %502 %499
+%504 = OpBitcast %21 %503
+%505 = OpAccessChain %63 %25 %35 %36
+OpStore %505 %504
+%506 = OpLoad %18 %20
+%507 = OpLoad %26 %28
+%508 = OpCompositeConstruct %80 %38 %40 %42
+%509 = OpGroupNonUniformQuadSwap %80 %55 %508 %35
+%510 = OpGroupNonUniformQuadSwap %80 %55 %508 %57
+%511 = OpFSub %80 %509 %508
+%512 = OpFSub %80 %510 %508
+%513 = OpImageQuerySizeLod %429 %506 %400
+%514 = OpConvertSToF %80 %513
+%515 = OpFMul %80 %511 %514
+%516 = OpFMul %80 %512 %514
+%517 = OpDot %5 %515 %515
+%518 = OpDot %5 %516 %516
+%519 = OpExtInst %5 %153 FMax %517 %518
+%520 = OpExtInst %5 %153 Log2 %519
+%521 = OpFMul %5 %520 %409
+%522 = OpImageQueryLevels %393 %506
+%523 = OpConvertSToF %5 %522
+%524 = OpFSub %5 %523 %413
+%525 = OpExtInst %5 %153 FMin %521 %524
+%526 = OpExtInst %5 %153 FMax %525 %50
+%527 = OpAccessChain %63 %25 %35 %36
+%528 = OpLoad %21 %527
+%529 = OpBitcast %5 %528
+%530 = OpFAdd %5 %529 %526
+%531 = OpBitcast %21 %530
+%532 = OpAccessChain %63 %25 %35 %36
+OpStore %532 %531
 OpReturn
 OpFunctionEnd
 #endif
